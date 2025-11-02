@@ -8,7 +8,7 @@ class Message(BaseModel):
 class UserSchema(BaseModel):
     username: str
     email: EmailStr
-    passward: str
+    password: str
 
 
 class UserPublic(BaseModel):
@@ -19,3 +19,7 @@ class UserPublic(BaseModel):
 
 class UserDB(UserSchema):
     id: int
+
+
+class UserList(BaseModel):
+    users: list[UserPublic]

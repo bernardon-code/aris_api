@@ -8,7 +8,9 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
-    "fastapi[standard] (>=0.120.0,<0.121.0)"
+    "fastapi[standard] (>=0.120.0,<0.121.0)",
+    "sqlalchemy (>=2.0.44,<3.0.0)",
+    "pydantic-settings (>=2.11.0,<3.0.0)"
 ]
 
 
@@ -20,7 +22,8 @@ build-backend = "poetry.core.masonry.api"
 dev = [
     "ruff (>=0.14.2,<0.15.0)",
     "pytest (>=8.4.2,<9.0.0)",
-    "pytest-cov (>=7.0.0,<8.0.0)"
+    "pytest-cov (>=7.0.0,<8.0.0)",
+    "taskipy (>=1.14.1,<2.0.0)"
 ]
 
 [tool.ruff]
