@@ -10,3 +10,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
     TEST_DATABASE_URL: str
+
+
+# ✅ Instância global para ser importada em qualquer lugar
+settings = Settings()
