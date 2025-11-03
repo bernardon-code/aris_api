@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from aris_api.database import get_session
 from aris_api.schemas import UserPublic
 
 
@@ -85,3 +86,70 @@ def test_update_integrity(client, user):
     assert response.json() == {
         'detail': 'nome de usuário ou email já existente',
     }
+
+
+def test_create_user_conflict(client):
+    # Cria o primeiro usuário
+    client.post(
+        '/users/',
+        json={
+            'username': 'alice',
+            'email': 'alice@example.com',
+            'password': '123412341234',
+        },
+    )
+
+    # Tenta criar outro com o mesmo username
+    response = client.post(
+        '/users/',
+        json={
+            'username': 'alice',  # mesmo username
+            'email': 'alice2@example.com',
+            'password': '123412341234',
+        },
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT
+    assert response.json() == {'detail': 'Nome de usuário já existe'}
+
+    # Agora testa conflito por email
+    response_email_conflict = client.post(
+        '/users/',
+        json={
+            'username': 'bob',
+            'email': 'alice@example.com',  # mesmo email
+            'password': '123412341234',
+        },
+    )
+
+    assert response_email_conflict.status_code == HTTPStatus.CONFLICT
+    assert response_email_conflict.json() == {'detail': 'Email já existe'}
+
+
+def test_update_user_not_found(client):
+    # Tenta atualizar um usuário inexistente (id=999)
+    response = client.put(
+        '/users/999',
+        json={
+            'username': 'ghost',
+            'email': 'ghost@example.com',
+            'password': '123412341234',
+        },
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json() == {'detail': 'Usuário não encontrado'}
+
+
+def test_delete_user_not_found(client):
+    # Tenta deletar um usuário inexistente (id=999)
+    response = client.delete('/users/999')
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json() == {'detail': 'Usuário não encontrado'}
+
+
+def test_get_session_function():
+    # Garante que o generator abre e fecha corretamente
+    generator = get_session()
+    session = next(generator)  # entra no 'with Session(engine)'
+    assert session is not None  # deve retornar uma instância de Session
+    generator.close()  # encerra o generator para fechar a sessão
