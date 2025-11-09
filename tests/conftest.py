@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from aris_api.app import app
 from aris_api.database import get_session
 from aris_api.models import User, table_registry
+from aris_api.security import get_password_hash
 
 
 @pytest.fixture
@@ -56,12 +57,26 @@ def mock_db_time():
 
 @pytest.fixture
 def user(db_session):
+    password = '123412341234'
     user = User(
         username='teste',
         email='teste@example.com',
-        password='123412341234',
+        password=get_password_hash(password),
     )
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
+    user.clean_password = password
     return user
+
+
+@pytest.fixture
+def token(client, user):
+    response = client.post(
+        '/token',
+        data={
+            'username': user.username,
+            'password': user.clean_password,
+        },
+    )
+    return response.json().get('access_token')

@@ -1,6 +1,7 @@
 from http import HTTPStatus
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,9 +10,16 @@ from aris_api.database import get_session
 from aris_api.models import User
 from aris_api.schemas import (
     Message,
+    Token,
     UserList,
     UserPublic,
     UserSchema,
+)
+from aris_api.security import (
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    verify_password,
 )
 
 app = FastAPI()
@@ -49,7 +57,7 @@ def create_user(user: UserSchema, session: Session = Depends(get_session)):
     user_db = User(
         username=user.username,
         email=user.email,
-        password=user.password,
+        password=get_password_hash(user.password),
     )
     session.add(user_db)
     session.commit()
@@ -59,7 +67,10 @@ def create_user(user: UserSchema, session: Session = Depends(get_session)):
 
 @app.get('/users/', status_code=HTTPStatus.OK, response_model=UserList)
 def read_users(
-    limit: int = 10, offset: int = 0, session: Session = Depends(get_session)
+    limit: int = 10,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+    get_current_user=Depends(get_current_user),
 ):
     users = session.scalars(select(User).limit(limit).offset(offset))
     return {'users': users}
@@ -74,21 +85,32 @@ def update_user(
     user_id: int,
     user: UserSchema,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+    # 1️⃣ Verifica se o usuário existe primeiro
     user_db = session.scalar(select(User).where(User.id == user_id))
     if not user_db:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Usuário não encontrado',
         )
+
+    # 2️⃣ Só depois verifica se o usuário logado é o dono da conta
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail='Não autorizado para atualizar este usuário',
+        )
+
+    # 3️⃣ Atualiza dados se tudo certo
     try:
         user_db.username = user.username
         user_db.email = user.email
-        user_db.password = user.password
+        user_db.password = get_password_hash(user.password)
         session.commit()
         session.refresh(user_db)
-
         return user_db
+
     except IntegrityError:
         session.rollback()
         raise HTTPException(
@@ -116,3 +138,31 @@ def delete_user(
     session.delete(user_db)
     session.commit()
     return Message(message='usuário deletado com sucesso')
+
+
+@app.post('/token', response_model=Token)
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session),
+):
+    user_db = session.scalar(
+        select(User).where(
+            (User.email == form_data.username)
+            | (User.username == form_data.username)
+        )
+    )
+    if not user_db:
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail='email ou senha incorretos',
+        )
+
+    if not verify_password(form_data.password, user_db.password):
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail='email ou senha incorretos',
+        )
+
+    access_token = create_access_token({'sub': user_db.email})
+
+    return {'access_token': access_token, 'token_type': 'bearer'}
