@@ -1,11 +1,15 @@
 from dataclasses import asdict
 
+import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession  # ✅ import adicionado
 
 from aris_api.models import User
 
 
-def test_create_user(db_session, mock_db_time):
+@pytest.mark.asyncio
+async def test_create_user(db_session: AsyncSession, mock_db_time):
+    """Testa a criação de um novo usuário e valida os campos persistidos."""
     with mock_db_time(model=User) as time:
         new_user = User(
             username='Julio',
@@ -13,9 +17,11 @@ def test_create_user(db_session, mock_db_time):
             password='123412341234',
         )
         db_session.add(new_user)
-        db_session.commit()
+        await db_session.commit()
 
-        user = db_session.scalar(select(User).where(User.username == 'Julio'))
+        user = await db_session.scalar(
+            select(User).where(User.username == 'Julio')
+        )  # ✅ parêntese fechado corretamente
 
         assert asdict(user) == {
             'id': 1,

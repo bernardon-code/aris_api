@@ -1,12 +1,14 @@
 from jwt import decode
 
-from aris_api.security import ALGORITHM, SECRET_KEY, create_access_token
+from aris_api.security import create_access_token, settings
 
 
 def test_jwt():
     data = {'test': 'test'}
     token = create_access_token(data)
 
-    decoded = decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    decoded = decode(
+        token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+    )
     assert decoded['test'] == data['test']
     assert 'exp' in decoded
